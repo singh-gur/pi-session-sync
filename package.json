@@ -1,7 +1,7 @@
 {
   "name": "@singh-gur/pi-session-sync",
   "version": "0.1.0",
-  "description": "Sync pi session files across machines via a private git repo",
+  "description": "Pi extension: sync your pi sessions across machines through a private git repo, with per-machine path mapping and branch-preserving merges.",
   "scripts": {
     "test": "node --test 'test/**/*.test.ts'",
     "typecheck": "tsc --noEmit",
@@ -17,7 +17,10 @@
     "pi-extension",
     "session",
     "sync",
-    "git"
+    "git",
+    "multi-machine",
+    "backup",
+    "sessions"
   ],
   "author": "singh-gur",
   "license": "MIT",
@@ -29,7 +32,8 @@
   "pi": {
     "extensions": [
       "./src/index.ts"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/singh-gur/pi-session-sync/main/assets/hero.png"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",

@@ -1,22 +1,46 @@
-# @singh-gur/pi-session-sync
+# pi-session-sync
 
-Sync [pi](https://pi.dev) session files across machines through a **private** git repository.
+**Start on your laptop. Pick it up on your desktop. Keep coding.**
 
-> **Warning: the sync repo MUST be private.** Session files contain your prompts, code, tool output
-> (file contents, command output) and possibly secrets such as API keys or tokens. They are not
-> encrypted or redacted.
+Your [pi](https://pi.dev) sessions, on every machine. Push a conversation from one machine, pull it on another, and carry on exactly where you left off: same history, same `/tree`, with paths rewritten for the machine you're on. Everything travels through a private git repo you already own. No server, no account, no new service.
 
-## Install
+[Install](#get-started) · [Configure](#configure) · [How it works](#how-it-works) · [npm](https://www.npmjs.com/package/@singh-gur/pi-session-sync)
 
-Requires **Node.js >= 24.16**, **pi 1.x** (tested with 1.5.2), and `git` on your `PATH` with access to your sync repo.
+![The /session-sync-push picklist listing four sessions under /home/me/dev with the current one selected, followed by "session-sync: pushed 1, unchanged 0".](https://raw.githubusercontent.com/singh-gur/pi-session-sync/main/assets/hero.png)
+
+*Illustration of the extension's picklist with synthetic sessions. Colors and spacing depend on your terminal and pi theme.*
+
+> [!WARNING]
+> **Your sync repo must be private.** Sessions contain your prompts, code, tool output (file contents, command output) and possibly secrets such as API keys or tokens. They are not encrypted or redacted.
+
+## Why you'll like it
+
+- **Pick exactly what travels.** `/session-sync-push` and `/session-sync-pull` open a picklist with the current session pre-selected. Nothing moves without you choosing it.
+- **Paths that follow you.** `/Users/me/code/api` on your Mac becomes `/home/me/dev/api` on your Linux box. Named roots turn machine paths into portable placeholders, so `/resume` finds the session in the right project.
+- **Work on both machines, lose nothing.** Sessions are merged entry by entry. Continue the same conversation in two places and both branches show up in `/tree`, with the newest one active.
+- **Your files stay the source of truth.** Pull never deletes local sessions, and the active session only reloads when the agent is idle.
+- **Just git.** Any remote `git` can reach: GitHub, GitLab, Gitea, a bare repo over SSH. Authentication uses your existing git setup.
+- **Hands-free if you want it.** Optional auto mode pulls when pi starts and pushes when you quit. Off by default; startup pulls run in the background, and network failures only show a warning.
+
+## Get started
 
 ```sh
 pi install npm:@singh-gur/pi-session-sync
 ```
 
-Then start pi, or run `/reload` in a running session, and create the [config file](#configure).
+1. Create an **empty, private** git repo for your sessions.
+2. Add the [config file](#configure) on each machine.
+3. Start pi (or run `/reload`), then:
 
-Other ways to install:
+```text
+/session-sync-push     # on the machine you worked on
+/session-sync-pull     # on the machine you're moving to
+```
+
+Requires **Node.js >= 24.16**, **pi 1.x** (tested with 1.5.2), and `git` on your `PATH` with access to your sync repo. Install the package on every machine you want to sync.
+
+<details>
+<summary>Try without installing, install from GitHub, pin, or update</summary>
 
 ```sh
 # Try it for the current run only
@@ -32,13 +56,13 @@ pi install /path/to/pi-session-sync
 pi update --extensions
 ```
 
-To pin a release, append `@<version>` to the npm package spec, for example `npm:@singh-gur/pi-session-sync@0.1.0`. Pinned versions are skipped by package updates.
+To pin a release, append `@<version>`, for example `npm:@singh-gur/pi-session-sync@0.1.0`. Pinned versions are skipped by package updates.
 
-Install the same package on every machine you want to sync, each with its own config file.
+</details>
 
 ## Configure
 
-Create `~/.pi/agent/git-session-sync.json` on each machine (it is machine-local and never synced):
+Create `~/.pi/agent/git-session-sync.json` on each machine. It is machine-local and never synced.
 
 ```json
 {
@@ -49,39 +73,41 @@ Create `~/.pi/agent/git-session-sync.json` on each machine (it is machine-local 
 }
 ```
 
-- `repoUrl` (required): any URL `git` can clone; use an empty private repo. Git authentication uses your normal git setup.
-- `branch`: defaults to `main`.
-- `roots` (required): named root directories. Names use `a-z`, `0-9`, `_` and `-`; paths must be absolute.
-- `auto`: both options default to `false`.
+| Key | Required | What it does |
+| --- | --- | --- |
+| `repoUrl` | yes | Any URL `git` can clone. Use an empty private repo. |
+| `branch` | no | Branch to sync. Defaults to `main`. |
+| `roots` | yes | Named root directories. Names use `a-z`, `0-9`, `_` and `-`; paths must be absolute. Only sessions under a root are synced. |
+| `auto.pullOnStart` | no | Pull new or changed sessions in the background when pi starts. Defaults to `false`. |
+| `auto.pushOnShutdown` | no | Push the current session when you quit pi. Defaults to `false`. |
 
-### Roots and placeholders
+### Same project, different paths
 
-Only sessions whose working directory is under a configured root are synced. On push, every
-occurrence of a root path in the session (cwd, messages, tool calls and results) is replaced with a
-placeholder such as `{{PISYNC:dev}}`; the longest matching root wins. On pull, placeholders are
-replaced with *this* machine's path for the same root name. So `/home/me/dev/proj` on one machine
-becomes `/Users/me/code/proj` on another when both define a `dev` root.
+Give a root the **same name** on every machine and point it at that machine's folder:
 
-Sessions that use a root name this machine does not define are skipped on pull, with a warning.
+| Machine | Config | Session cwd |
+| --- | --- | --- |
+| MacBook | `"dev": "/Users/me/code"` | `/Users/me/code/api` |
+| In the repo | | `{{PISYNC:dev}}/api` |
+| Linux desktop | `"dev": "/home/me/dev"` | `/home/me/dev/api` |
+
+Every root path in a session (cwd, messages, tool calls and results) is replaced at path boundaries, with the longest matching root winning. Sessions that use a root name this machine doesn't define are skipped on pull, with a warning.
 
 ## Commands
 
-- `/session-sync-push`: pick sessions to push (only the current session is pre-selected). Space/Enter toggles an item, Esc finishes, then confirm.
-- `/session-sync-pull`: fetch the repo and pick from sessions that are new or changed compared to your local copies. If the current session is updated, pi reloads it. The current session is only updated when the agent is idle.
+| Command | What it does |
+| --- | --- |
+| `/session-sync-push` | Pick sessions to push. Only the current session is pre-selected. |
+| `/session-sync-pull` | Fetch the repo and pick from sessions that are **[new]** or **[changed]** compared to your local copies. If the current session is updated, pi reloads it. |
 
-## Auto mode (off by default)
+In the picklist: `Space`/`Enter` toggles a session, `Esc` finishes, then confirm with **Yes** or back out with **No**. Each run ends with a summary: synced, unchanged, new entries, conflicts and anything skipped (with the reason).
 
-- `pullOnStart`: when pi starts, pull all new or changed sessions in the background, except the current session. Failures are shown as warnings and never block startup.
-- `pushOnShutdown`: when you quit pi, push the current session if it is under a root.
+## How it works
 
-## How merging works
-
-Your local session files are the source of truth; the local clone at
-`~/.pi/agent/git-session-sync/repo` is a disposable cache that is reset to the remote before each
-operation. Sessions are merged entry by entry (by id), so the same session continued on two
-machines keeps both branches (see `/tree`). Entries are ordered by timestamp and the newest entry
-becomes the active leaf. If the same entry id has different content on each side, the local
-version is kept and the conflict is reported. Pull never deletes local files.
+- **Merging.** Sessions are merged by entry id and ordered by timestamp, so the newest entry becomes the active leaf. If the same entry id has different content on each side, your local version is kept and the conflict is reported.
+- **Local first.** Your session files are the source of truth. The clone at `~/.pi/agent/git-session-sync/repo` is a disposable cache, reset to the remote before every operation. Concurrent pushes from other machines are merged and retried automatically.
+- **Safe writes.** Session files are written atomically, never outside pi's sessions directory, and never deleted.
+- **Repo layout.** `sessions/<root>/<project>/<session-file>.jsonl`, readable and diffable like any other repo.
 
 ## Limitations
 
@@ -89,7 +115,7 @@ version is kept and the conflict is reported. Pull never deletes local files.
 - Only pi's default session directory is supported (no custom `sessionDir`).
 - Sessions with a different session format version are skipped.
 - The repo grows without bound (sessions can include base64 images).
-- Rewriting replaces any string that contains a root path, including coincidental matches in message text.
+- Path rewriting also changes coincidental matches of a root path inside message text.
 - No encryption or redaction; see the warning above.
 
 ## Development
@@ -108,6 +134,6 @@ just bump patch   # or minor / major: bumps version, tags, pushes
 just publish      # pnpm publish to npm
 ```
 
-## License
+Found a problem? [Open an issue](https://github.com/singh-gur/pi-session-sync/issues). Never paste session contents that may include secrets.
 
-MIT
+[MIT license](https://github.com/singh-gur/pi-session-sync/blob/main/LICENSE)
