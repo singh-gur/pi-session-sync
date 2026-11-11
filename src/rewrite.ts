@@ -22,7 +22,8 @@ export function toPortable(s: string, roots: Roots): string {
 export function toLocal(s: string, roots: Roots): { value: string; unknown: string[] } {
 	const unknown = new Set<string>();
 	const value = s.replace(TOKEN_RE, (m, name: string) => {
-		if (Object.hasOwn(roots, name)) return roots[name];
+		const path = Object.hasOwn(roots, name) ? roots[name] : undefined;
+		if (path !== undefined) return path;
 		unknown.add(name);
 		return m;
 	});

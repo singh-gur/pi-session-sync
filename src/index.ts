@@ -26,7 +26,7 @@ const newSummary = (): Summary => ({ synced: 0, added: 0, unchanged: 0, conflict
 
 function header(text: string): { version?: unknown; cwd?: unknown } | undefined {
 	try {
-		const h = JSON.parse(text.split("\n", 1)[0]);
+		const h = JSON.parse(text.split("\n", 1)[0] ?? "");
 		return h?.type === "session" ? h : undefined;
 	} catch {
 		return undefined;

@@ -1,6 +1,6 @@
 type Line = Record<string, unknown>;
 
-function parse(text: string | undefined): { header?: Line; entries: Line[] } {
+function parse(text: string | undefined): { header: Line | undefined; entries: Line[] } {
 	const entries: Line[] = [];
 	let header: Line | undefined;
 	for (const raw of (text ?? "").split("\n")) {
