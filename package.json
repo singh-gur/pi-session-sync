@@ -1,5 +1,5 @@
 {
-  "name": "pi-session-sync",
+  "name": "@singh-gur/pi-session-sync",
   "version": "0.1.0",
   "description": "Sync pi session files across machines via a private git repo",
   "scripts": {

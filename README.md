@@ -1,4 +1,4 @@
-# pi-session-sync
+# @singh-gur/pi-session-sync
 
 Sync [pi](https://pi.dev) session files across machines through a **private** git repository.
 
@@ -11,7 +11,7 @@ Sync [pi](https://pi.dev) session files across machines through a **private** gi
 Requires **Node.js >= 24.16**, **pi 1.x** (tested with 1.5.2), and `git` on your `PATH` with access to your sync repo.
 
 ```sh
-pi install npm:pi-session-sync
+pi install npm:@singh-gur/pi-session-sync
 ```
 
 Then start pi, or run `/reload` in a running session, and create the [config file](#configure).
@@ -20,7 +20,7 @@ Other ways to install:
 
 ```sh
 # Try it for the current run only
-pi -e npm:pi-session-sync
+pi -e npm:@singh-gur/pi-session-sync
 
 # Install from GitHub
 pi install git:github.com/singh-gur/pi-session-sync
@@ -32,7 +32,7 @@ pi install /path/to/pi-session-sync
 pi update --extensions
 ```
 
-To pin a release, append `@<version>` to the npm package spec, for example `npm:pi-session-sync@0.1.0`. Pinned versions are skipped by package updates.
+To pin a release, append `@<version>` to the npm package spec, for example `npm:@singh-gur/pi-session-sync@0.1.0`. Pinned versions are skipped by package updates.
 
 Install the same package on every machine you want to sync, each with its own config file.
 
