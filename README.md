@@ -20,7 +20,7 @@ Your [pi](https://pi.dev) sessions, on every machine. Push a conversation from o
 - **Work on both machines, lose nothing.** Sessions are merged entry by entry. Continue the same conversation in two places and both branches show up in `/tree`, with the newest one active.
 - **Your files stay the source of truth.** Pull never deletes local sessions, and the active session only reloads when the agent is idle.
 - **Just git.** Any remote `git` can reach: GitHub, GitLab, Gitea, a bare repo over SSH. Authentication uses your existing git setup.
-- **Hands-free if you want it.** Optional auto mode pulls when pi starts and pushes when you quit. Off by default; startup pulls run in the background, and network failures only show a warning.
+- **Hands-free if you want it.** Optional auto mode pulls the current folder's sessions when pi starts and pushes when you quit, configurable per root or folder. Off by default; startup pulls run in the background, and network failures only show a warning.
 
 ## Get started
 
@@ -78,8 +78,26 @@ Create `~/.pi/agent/git-session-sync.json` on each machine. It is machine-local 
 | `repoUrl` | yes | Any URL `git` can clone. Use an empty private repo. |
 | `branch` | no | Branch to sync. Defaults to `main`. |
 | `roots` | yes | Named root directories. Names use `a-z`, `0-9`, `_` and `-`; paths must be absolute. Only sessions under a root are synced. |
-| `auto.pullOnStart` | no | Pull new or changed sessions in the background when pi starts. Defaults to `false`. |
+| `auto.pullOnStart` | no | When pi starts, pull new or changed sessions for the folder pi was started in, in the background. Defaults to `false`. |
 | `auto.pushOnShutdown` | no | Push the current session when you quit pi. Defaults to `false`. |
+| `auto.overrides` | no | Per-root or per-folder auto settings; see below. |
+
+### Per-root and per-folder auto sync
+
+`auto.overrides` keys are a root name (`dev`) or a root name plus a path under it (`dev/api`). Each entry sets `pullOnStart` and/or `pushOnShutdown`; unset fields fall back to the closest matching parent key, then to the global `auto` value. The longest matching key wins. Keys must start with a configured root name.
+
+```json
+"auto": {
+  "pullOnStart": false,
+  "pushOnShutdown": true,
+  "overrides": {
+    "dev":         { "pullOnStart": true },
+    "dev/scratch": { "pushOnShutdown": false }
+  }
+}
+```
+
+Here `/home/me/dev/api` pulls on start and pushes on quit, `/home/me/dev/scratch` pulls but never auto-pushes, and folders under `home` only push. Folders outside every root never auto-sync.
 
 ### Same project, different paths
 
@@ -100,7 +118,7 @@ Every root path in a session (cwd, messages, tool calls and results) is replaced
 | `/session-sync-push` | Pick sessions to push. Only the current session is pre-selected. |
 | `/session-sync-pull` | Fetch the repo and pick from sessions that are **[new]** or **[changed]** compared to your local copies. If the current session is updated, pi reloads it. |
 
-In the picklist: `Space`/`Enter` toggles a session, `Esc` finishes, then confirm with **Yes** or back out with **No**. Each run ends with a summary: synced, unchanged, new entries, conflicts and anything skipped (with the reason).
+In the picklist: `↑`/`↓` move, `Space` checks or unchecks a session, `a` selects all/none, `Enter` syncs the checked sessions, `Esc` cancels. Each run ends with a summary: synced, unchanged, new entries, conflicts and anything skipped (with the reason).
 
 ## How it works
 

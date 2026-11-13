@@ -3,7 +3,7 @@ import { hostname } from "node:os";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CURRENT_SESSION_VERSION, getAgentDir, SessionManager } from "@earendil-works/pi-coding-agent";
-import { loadConfig, type SyncConfig } from "./config.ts";
+import { autoFor, loadConfig, type SyncConfig } from "./config.ts";
 import { commitAndPush, ensureClone, type Exec, syncToRemote } from "./git.ts";
 import { localSessionDirFor, repoPathFor } from "./layout.ts";
 import { mergeSessions } from "./merge.ts";
@@ -123,12 +123,13 @@ function localize(cfg: SyncConfig, repoFile: string): { target: string; text: st
 	return { target, text };
 }
 
-async function scanPull(exec: Exec, cfg: SyncConfig, s: Summary): Promise<PullCandidate[]> {
+/** `only`: repo-relative dir (e.g. "sessions/dev/api") to restrict the scan to; defaults to all sessions. */
+async function scanPull(exec: Exec, cfg: SyncConfig, s: Summary, only = "sessions"): Promise<PullCandidate[]> {
 	const clone = cloneDir();
 	await ensureClone(exec, cfg, clone);
 	await syncToRemote(exec, cfg, clone);
 	const out: PullCandidate[] = [];
-	for (const repoFile of walkJsonl(join(clone, "sessions"))) {
+	for (const repoFile of walkJsonl(join(clone, only))) {
 		const l = localize(cfg, repoFile);
 		if ("skip" in l) {
 			s.skipped.push(l.skip);
@@ -179,13 +180,15 @@ export default function (pi: ExtensionAPI) {
 			const picked = await pickSessions(
 				ctx,
 				"Push sessions",
+				"push",
 				infos.map((i) => ({
 					id: i.path,
 					label: `${(i.name || i.firstMessage || "(empty)").replace(/\s+/g, " ").slice(0, 60)} · ${i.cwd} · ${i.modified.toLocaleString()}`,
 					checked: i.path === current,
 				})),
 			);
-			if (!picked?.length) return ctx.ui.notify("session-sync: nothing selected", "info");
+			if (!picked) return ctx.ui.notify("session-sync: cancelled", "info");
+			if (!picked.length) return ctx.ui.notify("session-sync: nothing selected", "info");
 			ctx.ui.setStatus("session-sync", "pushing sessions...");
 			try {
 				report(ctx, "pushed", await pushSessions(exec, cfg, picked));
@@ -213,9 +216,11 @@ export default function (pi: ExtensionAPI) {
 				const picked = await pickSessions(
 					ctx,
 					"Pull sessions",
+					"pull",
 					candidates.map((c) => ({ id: c.target, label: c.label, checked: c.target === current })),
 				);
-				if (!picked?.length) return ctx.ui.notify("session-sync: nothing selected", "info");
+				if (!picked) return ctx.ui.notify("session-sync: cancelled", "info");
+				if (!picked.length) return ctx.ui.notify("session-sync: nothing selected", "info");
 				for (const c of candidates.filter((c) => picked.includes(c.target))) {
 					if (c.target === current && !ctx.isIdle()) {
 						s.skipped.push(`${basename(c.target)}: agent busy (current session)`);
@@ -239,12 +244,15 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (event, ctx) => {
 		if (event.reason !== "startup") return;
 		const cfg = getConfig(ctx, true);
-		if (!cfg?.auto.pullOnStart) return;
+		const cwd = resolve(ctx.cwd);
+		// Only this folder's sessions; repoPathFor is undefined outside roots, so no network call there.
+		const rel = cfg && autoFor(cfg, cwd).pullOnStart ? repoPathFor(cwd, "x", cfg.roots) : undefined;
+		if (!cfg || !rel) return;
 		const current = ctx.sessionManager.getSessionFile();
 		// Fire and forget: never block startup on the network.
 		void (async () => {
 			const s = newSummary();
-			for (const c of await scanPull(exec, cfg, s)) if (c.target !== current) applyPull(cfg, c, s);
+			for (const c of await scanPull(exec, cfg, s, dirname(rel))) if (c.target !== current) applyPull(cfg, c, s);
 			if (s.synced || s.skipped.length) report(ctx, "auto-pulled", s);
 		})().catch((e) => ctx.ui.notify(`session-sync auto-pull failed: ${errMsg(e)}`, "warning"));
 	});
@@ -253,9 +261,9 @@ export default function (pi: ExtensionAPI) {
 		if (event.reason !== "quit") return;
 		const cfg = getConfig(ctx, true);
 		const current = ctx.sessionManager.getSessionFile();
-		if (!cfg?.auto.pushOnShutdown || !current || !existsSync(current)) return;
+		if (!cfg || !current || !existsSync(current)) return;
 		const h = header(readFileSync(current, "utf8"));
-		if (typeof h?.cwd !== "string" || !repoPathFor(h.cwd, basename(current), cfg.roots)) return;
+		if (typeof h?.cwd !== "string" || !autoFor(cfg, h.cwd).pushOnShutdown) return;
 		try {
 			await pushSessions(exec, cfg, [current]);
 		} catch (e) {

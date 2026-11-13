@@ -1,11 +1,16 @@
 import { existsSync, readFileSync } from "node:fs";
+import { rootFor } from "./layout.ts";
 
+export type AutoFlags = { pullOnStart: boolean; pushOnShutdown: boolean };
 export type SyncConfig = {
 	repoUrl: string;
 	branch: string;
 	roots: Record<string, string>;
-	auto: { pullOnStart: boolean; pushOnShutdown: boolean };
+	/** overrides: "<root>" or "<root>/<rel/path>" -> partial flags; longest matching key wins. */
+	auto: AutoFlags & { overrides: Record<string, Partial<AutoFlags>> };
 };
+
+const FLAGS = ["pullOnStart", "pushOnShutdown"] as const;
 
 const ROOT_NAME = /^[a-z0-9_-]+$/;
 
@@ -30,12 +35,41 @@ export function parseConfig(raw: unknown): SyncConfig {
 	}
 
 	const auto = isObject(raw.auto) ? raw.auto : {};
+	if (auto.overrides !== undefined && !isObject(auto.overrides))
+		throw new Error("config.auto.overrides must be an object of \"root[/path]\" -> { pullOnStart?, pushOnShutdown? }");
+	const overrides: Record<string, Partial<AutoFlags>> = {};
+	for (const [rawKey, val] of Object.entries(auto.overrides ?? {})) {
+		const key = rawKey.replace(/^\/+|\/+$/g, "");
+		const segs = key.split("/");
+		if (!(segs[0]! in roots)) throw new Error(`config.auto.overrides: "${rawKey}" must start with a configured root name`);
+		if (segs.some((s) => !s || s === "." || s === ".."))
+			throw new Error(`config.auto.overrides: "${rawKey}" has an empty, "." or ".." segment`);
+		if (!isObject(val)) throw new Error(`config.auto.overrides.${rawKey} must be an object`);
+		const o: Partial<AutoFlags> = {};
+		for (const [k, v] of Object.entries(val)) {
+			if (!(FLAGS as readonly string[]).includes(k) || typeof v !== "boolean")
+				throw new Error(`config.auto.overrides.${rawKey}.${k}: expected pullOnStart or pushOnShutdown with a boolean`);
+			o[k as keyof AutoFlags] = v;
+		}
+		overrides[key] = o;
+	}
 	return {
 		repoUrl: raw.repoUrl,
 		branch: (raw.branch as string | undefined) ?? "main",
 		roots,
-		auto: { pullOnStart: auto.pullOnStart === true, pushOnShutdown: auto.pushOnShutdown === true },
+		auto: { pullOnStart: auto.pullOnStart === true, pushOnShutdown: auto.pushOnShutdown === true, overrides },
 	};
+}
+
+/** Effective auto flags for a local cwd: global defaults, then matching overrides from shortest to longest key. Off outside roots. */
+export function autoFor(cfg: SyncConfig, cwd: string): AutoFlags {
+	const r = rootFor(cwd, cfg.roots);
+	if (!r) return { pullOnStart: false, pushOnShutdown: false };
+	const path = r.rel ? `${r.name}/${r.rel}` : r.name;
+	const flags: AutoFlags = { pullOnStart: cfg.auto.pullOnStart, pushOnShutdown: cfg.auto.pushOnShutdown };
+	for (const key of Object.keys(cfg.auto.overrides).sort((a, b) => a.length - b.length))
+		if (path === key || path.startsWith(`${key}/`)) Object.assign(flags, cfg.auto.overrides[key]);
+	return flags;
 }
 
 export function loadConfig(file: string): SyncConfig | undefined {
