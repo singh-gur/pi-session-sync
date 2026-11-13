@@ -1,6 +1,6 @@
 {
   "name": "@singh-gur/pi-session-sync",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Pi extension: sync your pi sessions across machines through a private git repo, with per-machine path mapping and branch-preserving merges.",
   "scripts": {
     "test": "node --test 'test/**/*.test.ts'",
