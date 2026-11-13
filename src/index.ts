@@ -185,6 +185,7 @@ export default function (pi: ExtensionAPI) {
 					id: i.path,
 					label: `${(i.name || i.firstMessage || "(empty)").replace(/\s+/g, " ").slice(0, 60)} · ${i.cwd} · ${i.modified.toLocaleString()}`,
 					checked: i.path === current,
+					local: resolve(i.cwd) === resolve(ctx.cwd),
 				})),
 			);
 			if (!picked) return ctx.ui.notify("session-sync: cancelled", "info");

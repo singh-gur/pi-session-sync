@@ -115,10 +115,10 @@ Every root path in a session (cwd, messages, tool calls and results) is replaced
 
 | Command | What it does |
 | --- | --- |
-| `/session-sync-push` | Pick sessions to push. Only the current session is pre-selected. |
+| `/session-sync-push` | Pick sessions to push. Lists sessions from the current directory by default (`Tab` toggles all directories). Only the current session is pre-selected. |
 | `/session-sync-pull` | Fetch the repo and pick from sessions that are **[new]** or **[changed]** compared to your local copies. If the current session is updated, pi reloads it. |
 
-In the picklist: `↑`/`↓` move, `Space` checks or unchecks a session, `a` selects all/none, `Enter` syncs the checked sessions, `Esc` cancels. Each run ends with a summary: synced, unchanged, new entries, conflicts and anything skipped (with the reason).
+In the picklist: `↑`/`↓` move, `Space` checks or unchecks a session, `a` selects all/none of the visible sessions, `Tab` switches between current-directory and all-directory sessions (push only; only visible checked sessions are synced), `Enter` syncs the checked sessions, `Esc` cancels. Each run ends with a summary: synced, unchanged, new entries, conflicts and anything skipped (with the reason).
 
 ## How it works
 
